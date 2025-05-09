@@ -7,12 +7,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.viewsets import ModelViewSet
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from .models import Driver
 from ml_models.face_recognition import recognize_face
 import cv2
 import numpy as np
 import base64
-from .utils import get_face_embedding
+from .utils import process_face
+from .validators import validate_embedding
 
 # View to retrieve driver information by license number
 class DriverView(APIView):
@@ -88,12 +91,24 @@ class DriverView(viewsets.ModelViewSet):
         image_file = self.request.FILES['profile_image']
         if not image_file:
             return JsonResponse({'error': 'No image provided'}, status=400)
-     
-        image = cv2.imdecode(np.frombuffer(image_file.read(), np.uint8), cv2.IMREAD_COLOR)
-        embedding = get_face_embedding(image)
+
+            
+        
+        try:
+            image = cv2.imdecode(np.frombuffer(image_file.read(), np.uint8), cv2.IMREAD_COLOR)
+            embedding, aligned_face = process_face(image)
+            validate_embedding(embedding)
+        except DjangoValidationError as e:
+            raise DRFValidationError({'embedding': e.messages})
+        except Exception as e:
+            raise DRFValidationError({'embedding': "The image could not be processed."})
         embedding_json = json.dumps(embedding.tolist())
         serializer.save(embedding=embedding_json)
         return super().perform_create(serializer)
+    
+    @action(detail=False, methods=['post'], url_path='identify')
+    def identify_driver(self, request):
+        
 
 class OfficerView(viewsets.ModelViewSet):
     queryset = Officer.objects.all()
