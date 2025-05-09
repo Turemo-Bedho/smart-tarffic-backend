@@ -1,16 +1,18 @@
 # from django.shortcuts import render
 
+import json
 from django.http import JsonResponse
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.viewsets import ModelViewSet
 from .models import Driver
 from ml_models.face_recognition import recognize_face
 import cv2
 import numpy as np
 import base64
-import json
+from .utils import get_face_embedding
 
 # View to retrieve driver information by license number
 class DriverView(APIView):
@@ -64,3 +66,39 @@ class FaceRecognitionView(APIView):
             return JsonResponse({'error': 'No face recognized',
             'processed_image': encoded_image,  # still show face with red rectangle
         }, status=400)
+
+
+# class DriverView(ModelViewSet):
+#     queryset = Driver.objects.all()
+#     serializer_class = DriverSerializer
+#     permission_classes = [IsAuthenticated]
+#     authentication_classes = [JWTAuthentication]
+
+
+from rest_framework import viewsets
+from .models import Driver, Officer, Address
+from .serializers import DriverSerializer, OfficerSerializer, AddressSerializer
+
+class DriverView(viewsets.ModelViewSet):
+    queryset = Driver.objects.all()
+    serializer_class = DriverSerializer
+    parser_classes = [MultiPartParser, FormParser]
+
+    def perform_create(self, serializer):
+        image_file = self.request.FILES['profile_image']
+        if not image_file:
+            return JsonResponse({'error': 'No image provided'}, status=400)
+     
+        image = cv2.imdecode(np.frombuffer(image_file.read(), np.uint8), cv2.IMREAD_COLOR)
+        embedding = get_face_embedding(image)
+        embedding_json = json.dumps(embedding.tolist())
+        serializer.save(embedding=embedding_json)
+        return super().perform_create(serializer)
+
+class OfficerView(viewsets.ModelViewSet):
+    queryset = Officer.objects.all()
+    serializer_class = OfficerSerializer
+
+class AddressView(viewsets.ModelViewSet):
+    queryset = Address.objects.all()
+    serializer_class = AddressSerializer
