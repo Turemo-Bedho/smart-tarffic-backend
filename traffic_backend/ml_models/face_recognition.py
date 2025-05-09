@@ -145,7 +145,7 @@ def recognize_face(image):
 
             # Compare with database
             license_number = compare_with_database(embedding)
-
+            
             # Annotate image
             color = (0, 255, 0) if license_number else (0, 0, 255)
             label = license_number if license_number else "Unknown"

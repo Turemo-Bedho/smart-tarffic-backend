@@ -9,66 +9,67 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.viewsets import ModelViewSet
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.decorators import action
 from .models import Driver
-from ml_models.face_recognition import recognize_face
+from .face_recognition import recognize_face_one
 import cv2
 import numpy as np
 import base64
 from .utils import process_face
 from .validators import validate_embedding
 
-# View to retrieve driver information by license number
-class DriverView(APIView):
-    def get(self, request, license_number):
-        try:
-            driver = Driver.objects.get(license_number=license_number)
-            data = {
-                'name': driver.name,
-                'license_number': driver.license_number,
-                'license_status': driver.license_status,
-                'violation_history': driver.violation_history,
-                'penalties': driver.penalties,
-            }
-            return Response(data)
-        except Driver.DoesNotExist:
-            return Response({'error': 'Driver not found'}, status=404)
+# # View to retrieve driver information by license number
+# class DriverView(APIView):
+#     def get(self, request, license_number):
+#         try:
+#             driver = Driver.objects.get(license_number=license_number)
+#             data = {
+#                 'name': driver.name,
+#                 'license_number': driver.license_number,
+#                 'license_status': driver.license_status,
+#                 'violation_history': driver.violation_history,
+#                 'penalties': driver.penalties,
+#             }
+#             return Response(data)
+#         except Driver.DoesNotExist:
+#             return Response({'error': 'Driver not found'}, status=404)
 
-# View for face recognition
-class FaceRecognitionView(APIView):
-    parser_classes = [MultiPartParser]
-    def get(self, request):
-        return Response({"message": "Face recognized"})
+# # View for face recognition
+# class FaceRecognitionView(APIView):
+#     parser_classes = [MultiPartParser]
+#     def get(self, request):
+#         return Response({"message": "Face recognized"})
 
-    def post(self, request):
-        # Get the image file from the request
-        image_file = request.FILES['image']
-        if not image_file:
-            return JsonResponse({'error': 'No image provided'}, status=400)
-        # new line added for debugging
-        # print("FILES received:", request.FILES)
-        # print("DATA received:", request.data)
-        image = cv2.imdecode(np.frombuffer(image_file.read(), np.uint8), cv2.IMREAD_COLOR)
-        if image is None:
-            return JsonResponse({'error': 'Invalid image format'}, status=400)
-        print("Image shape:", image.shape)
+#     def post(self, request):
+#         # Get the image file from the request
+#         image_file = request.FILES['image']
+#         if not image_file:
+#             return JsonResponse({'error': 'No image provided'}, status=400)
+#         # new line added for debugging
+#         # print("FILES received:", request.FILES)
+#         # print("DATA received:", request.data)
+#         image = cv2.imdecode(np.frombuffer(image_file.read(), np.uint8), cv2.IMREAD_COLOR)
+#         if image is None:
+#             return JsonResponse({'error': 'Invalid image format'}, status=400)
+#         print("Image shape:", image.shape)
         
 
-        # Perform face recognition
-        license_number, processed_image = recognize_face(image)
+#         # Perform face recognition
+#         license_number, processed_image = recognize_face_one(image)
 
-        # Encode the processed image to base64
-        _, buffer = cv2.imencode('.jpg', processed_image)
-        encoded_image = base64.b64encode(buffer).decode('utf-8')
+#         # Encode the processed image to base64
+#         _, buffer = cv2.imencode('.jpg', processed_image)
+#         encoded_image = base64.b64encode(buffer).decode('utf-8')
 
-        if license_number:
-            return JsonResponse({
-                'license_number': license_number,
-                'processed_image': encoded_image,
-            })
-        else:
-            return JsonResponse({'error': 'No face recognized',
-            'processed_image': encoded_image,  # still show face with red rectangle
-        }, status=400)
+#         if license_number:
+#             return JsonResponse({
+#                 'license_number': license_number,
+#                 'processed_image': encoded_image,
+#             })
+#         else:
+#             return JsonResponse({'error': 'No face recognized',
+#             'processed_image': encoded_image,  # still show face with red rectangle
+#         }, status=400)
 
 
 # class DriverView(ModelViewSet):
@@ -108,7 +109,29 @@ class DriverView(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'], url_path='identify')
     def identify_driver(self, request):
+        try:
+            image_file = request.FILES['image']
+            image = cv2.imdecode(np.frombuffer(image_file.read(), np.uint8), cv2.IMREAD_COLOR)
+            driver_id, processed_image = recognize_face_one(image)
+
+            # Encode the processed image to base64
+            _, buffer = cv2.imencode('.jpg', processed_image)
+            encoded_image = base64.b64encode(buffer).decode('utf-8')
+            print("Driver ID:", driver_id)
+            if driver_id:
+                driver = Driver.objects.get(id=driver_id)
+                
+                serializer = self.get_serializer(driver)
+                return Response(serializer.data)
+            else:
+                raise DRFValidationError({'Identification': "Couldn't identify the driver."})
         
+        except Exception as e:
+            print("Error during face recognition:", str(e))
+            raise DRFValidationError({'Identification': "Couldn't identify the driver."})
+
+
+
 
 class OfficerView(viewsets.ModelViewSet):
     queryset = Officer.objects.all()
