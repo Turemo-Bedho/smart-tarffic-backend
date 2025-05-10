@@ -2,7 +2,6 @@
 import cv2
 import numpy as np
 import json
-from .utils import align_face, get_face_embedding
 from deepface import DeepFace
 from mtcnn import MTCNN
 from driver_api.models import Driver
@@ -17,6 +16,44 @@ try:
     detector = MTCNN()
 except Exception as e:
     raise
+
+
+def align_face(face, landmarks):
+    """Align face based on eye landmarks."""
+    try:
+        left_eye = landmarks['left_eye']
+        right_eye = landmarks['right_eye']
+
+        # Ensure numeric values
+        left_eye = (float(left_eye[0]), float(left_eye[1]))
+        right_eye = (float(right_eye[0]), float(right_eye[1]))
+
+        # Calculate rotation angle
+        dY = right_eye[1] - left_eye[1]
+        dX = right_eye[0] - left_eye[0]
+        angle = np.degrees(np.arctan2(dY, dX))
+
+        # Calculate center
+       
+        eyes_center = (
+            (left_eye[0] + right_eye[0]) / 2.0,
+            (left_eye[1] + right_eye[1]) / 2.0,
+        )
+
+        # Get rotation matrix
+        M = cv2.getRotationMatrix2D(eyes_center, angle, 1.0)
+        
+        # Apply transformation
+        aligned = cv2.warpAffine(
+            face, M, (face.shape[1], face.shape[0]),
+            flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT
+        )
+        
+        return aligned
+
+    except Exception as e:
+        print("❌ Error during face alignment:", e)
+        return face
 
 
 def get_face_embedding(face_image, landmarks=None):
@@ -45,7 +82,7 @@ def compare_with_database(embedding):
         return None
 
     try:
-        drivers = Driver.objects.all().only("id", "embedding")
+        drivers = Driver.objects.all().only("id", "embedding", 'license_number')
         
         best_match = None
         highest_similarity = -1
@@ -63,7 +100,7 @@ def compare_with_database(embedding):
                 continue
 
         if best_match and highest_similarity > SIMILARITY_THRESHOLD:
-            return best_match.id
+            return best_match.license_number
         else:
             return None
     except Exception as e:
@@ -98,21 +135,21 @@ def recognize_face_one(image):
 
         # Generate embedding
         embedding = get_face_embedding(face_crop, face.get("keypoints"))
+        
         if embedding is None:
             raise Exception("Failed to generate face embedding")
 
         # Compare with database
-        driver_id = compare_with_database(embedding)
-
+        license_number = compare_with_database(embedding)
         # Annotate image
-        color = (0, 255, 0) if driver_id else (0, 0, 255)
-        label = driver_id if driver_id else "Unknown"
+        color = (0, 255, 0) if license_number else (0, 0, 255)
+        label = str(license_number) if license_number else "Unknown"
+       
         cv2.rectangle(output_image, (x, y), (x + w, y + h), color, 2)
         cv2.putText(output_image, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-
-        
-
-        return driver_id, output_image
+       
+        return license_number, output_image
 
     except Exception as e:
+        print(e)
         raise Exception(f"Face recognition failed")
