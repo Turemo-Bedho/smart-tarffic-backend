@@ -217,9 +217,9 @@ def register_driver(image_path, license_number, name, **kwargs):
 # === Example Usage ===
 if __name__ == "__main__":
     registration_success = register_driver(
-        image_path=r"C:\Users\hello\Desktop\smartTrafficFaceRecogntion\backend\traffic_backend\images\handsome-adult-male-posing.jpg",
-        license_number="DL124378",
-        name="Bekele Tadesse",
+        image_path=r"/home/lisping/Downloads/Telegram Desktop/3.jpg",
+        license_number="DL124370",
+        name="Turemo Bedaho",
         license_status="active",
         violation_history="Speeding, March 2024",
         penalties=100.0

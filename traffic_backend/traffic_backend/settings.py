@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,6 +36,7 @@ SECRET_KEY = "django-insecure-1!tawziy#ahwm+z01jhi6_7o)(z7po_%_q*tg*ha04c5i_rg(#
 # SECURITY WARNING: don't runpython manage.py runserver 192.168.60.99:8000 with debug turned on in production!
 DEBUG = True
 
+APPEND_SLASH = False 
 
 
 ALLOWED_HOSTS = ['*', 'localhost', '*']  # Add your IP address
@@ -46,7 +49,16 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    'driver_api' # Add your app here
+    'driver_api',
+    'core',
+    'rest_framework',
+    'djoser',
+    # 'corsheaders',
+    
+    # 'allauth',
+    # 'allauth.account',
+    # 'allauth.socialaccount',
+    # 'allauth.socialaccount.providers.google'
 ]
 
 MIDDLEWARE = [
@@ -60,6 +72,13 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "traffic_backend.urls"
+
+
+DJOSER = {
+    'SERIALIZERS': {
+        'user_create': 'core.serializers.UserCreateSerializer',
+    },
+}
 
 TEMPLATES = [
     {
@@ -93,9 +112,9 @@ WSGI_APPLICATION = "traffic_backend.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'traffic_management',
-        'USER': 'root',
-        'PASSWORD': 'efa22@Bod',
+        'NAME': 'smart_traffic_management',
+        'USER': 'lisping',
+        'PASSWORD': 'lisping',
         'HOST': 'localhost',
         'PORT': '3306',
     }
@@ -136,8 +155,23 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = "static/"
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+AUTH_USER_MODEL = 'core.User'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+SIMPLE_JWT = {
+   'AUTH_HEADER_TYPES': ('JWT',),
+   'ACCESS_TOKEN_LIFETIME':timedelta(days=60),
+}
