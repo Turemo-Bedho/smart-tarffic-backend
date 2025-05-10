@@ -2,11 +2,9 @@ import os
 import django
 import cv2
 import numpy as np
-import json
 import logging
 from deepface import DeepFace
 from mtcnn import MTCNN
-from django.core.exceptions import MultipleObjectsReturned
 
 # === Django Setup ===
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "traffic_backend.settings")
@@ -117,4 +115,5 @@ def align_face(face, landmarks):
         return aligned
     except Exception as e:
         logger.warning(f"Alignment failed, using original: {str(e)}")
+        print(300*"x")
         return face

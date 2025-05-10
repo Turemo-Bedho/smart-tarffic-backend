@@ -10,12 +10,12 @@ SIMILARITY_THRESHOLD = 0.65
 def validate_embedding(embedding):
     from .models import Driver
     """Check if similar face exists in database"""
-    print(len(Driver.objects.all()))
+    
     for driver in Driver.objects.all():
         db_embedding = np.array(json.loads(driver.embedding))
         similarity = np.dot(embedding, db_embedding)
         
-        print("Similarity:", similarity)
+        
         if similarity > SIMILARITY_THRESHOLD:
             raise ValidationError(
                 _("A driver with a similar face already exists: %(full_name)s (License No: %(license_number)s)"),
