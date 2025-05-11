@@ -166,6 +166,12 @@ class GeminiTrafficParser:
                 "response_mime_type": "application/json"
             }
         )
+        self.safety_settings = {
+            'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+            'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+            'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+            'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE'
+        }
         
         # Predefined mappings for standardization
         self.violation_types = {
@@ -184,39 +190,41 @@ class GeminiTrafficParser:
             'pending': 'PENDING'
         }
 
+
+
     def _get_schema_context(self) -> str:
-        """Returns complete schema with relationships"""
+        """Returns complete schema with correct table names and relationships"""
         return """
         Database Schema (Table → Fields):
-        
+
         ### Core Entities:
-        1. Drivers (d):
-           - id, license_number, first_name, last_name, date_of_birth, sex, 
+        1. driver_api_driver (d):
+           - id, license_number, first_name, last_name, date_of_birth, sex,
            - phone_number, nationality, license_issue_date, blood_type
-        
-        2. Vehicles (ve):
+
+        2. driver_api_vehicle (ve):
            - id, license_plate, make, model, year, color, vin, registration_date
-        
-        3. Violations (v):
+
+        3. driver_api_violation (v):
            - id, driver_id, vehicle_id, violation_type_id, issued_by_officer_id,
            - location, created_at, updated_at
-        
-        4. Tickets (t):
+
+        4. driver_api_ticket (t):
            - violation_id, status (PENDING/PAID/FAILED), reference_code, note,
            - issued_at, updated_at
-        
-        5. ViolationTypes (vt):
+
+        5. driver_api_violationtype (vt):
            - id, name (e.g., SPEEDING), description, fine_amount
-        
-        6. Officers (o):
+
+        6. driver_api_officer (o):
            - user_id, badge_number
-        
-        7. Addresses (a):
+
+        7. driver_api_address (a):
            - id, driver_id, region, woreda, house_number, street, city, postal_code
 
         ### Key Relationships:
         - Driver 1→N Violations
-        - Vehicle 1→N Violations 
+        - Vehicle 1→N Violations
         - Violation 1→1 Ticket
         - Violation N→1 ViolationType
         - Driver 1→N Addresses
@@ -237,7 +245,6 @@ class GeminiTrafficParser:
         {{
           "query": "SELECT ...",  // Complete MySQL query
           "entities": {{
-            // Extracted entities from query
             "license_number": str|null,
             "license_plate": str|null,
             "violation_type": str|null,
@@ -246,7 +253,7 @@ class GeminiTrafficParser:
             "officer_badge": str|null,
             "location": str|null,
             "vehicle_make": str|null,
-            "driver_attribute": str|null  // e.g., "blood_type=A+"
+            "driver_attribute": str|null
           }},
           "confidence": "high|medium|low",
           "query_type": "driver|vehicle|violation|ticket|officer|combined"
@@ -260,22 +267,23 @@ class GeminiTrafficParser:
            - t = driver_api_ticket
            - vt = driver_api_violationtype
            - o = driver_api_officer
-        
+           - a = driver_api_address
+
         2. Always include:
-           - LIMIT 1000 unless specified otherwise
-           - Relevant WHERE clauses for exact matches
-           - JOIN conditions using table aliases
-        
+           - LIMIT 1000 unless user explicitly asks for a single driver or one license number
+           - JOIN conditions using correct aliases
+
         3. For date ranges:
            - Use v.created_at for violation dates
-           - Support relative terms ("last month", "yesterday")
-        
+           - Support natural date terms (e.g., "last week", "this year")
+
         4. Standardize values:
            - UPPERCASE for license numbers/plates
            - Predefined violation types
            - Mapped ticket statuses
         """
 
+    
     def _standardize_entities(self, entities: Dict) -> Dict:
         """Normalizes all extracted entities"""
         # License/Plate standardization
