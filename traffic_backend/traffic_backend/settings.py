@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'core',
     'rest_framework',
     'djoser',
+    'reports',
     # 'corsheaders',
     
     # 'allauth',
@@ -60,6 +61,8 @@ INSTALLED_APPS = [
     # 'allauth.socialaccount',
     # 'allauth.socialaccount.providers.google'
 ]
+# Gemini Configuration
+GEMINI_API_KEY = 'AIzaSyBh7k4x2mDXbC3zOQlqtW-JxDU53kkshgs'  # Get from Google AI Studio
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -113,8 +116,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'smart_traffic_management',
-        'USER': 'lisping',
-        'PASSWORD': 'lisping',
+        'USER': 'root',
+        'PASSWORD': 'efa22@Bod',
         'HOST': 'localhost',
         'PORT': '3306',
     }

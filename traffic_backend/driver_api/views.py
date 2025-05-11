@@ -87,3 +87,106 @@ class OfficerView(viewsets.ModelViewSet):
 class AddressView(viewsets.ModelViewSet):
     queryset = Address.objects.all()
     serializer_class = AddressSerializer
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# #  code for generating traffic reports
+# import json
+# import logging
+# from django.http import JsonResponse
+# from django.views.decorators.csrf import csrf_exempt
+# # from .reports.services.report_service import TrafficReportGenerator
+
+# from reports.services.report_service import TrafficReportGenerator
+# logger = logging.getLogger(__name__)
+
+
+
+# @csrf_exempt
+# def generate_traffic_report(request):
+#     """Handles report generation requests."""
+#     if request.method != "POST":
+#         return JsonResponse({"error": "Only POST requests allowed"}, status=405)
+
+#     try:
+        
+#         data = json.loads(request.body)
+      
+#         query_text = data.get("query_text", "")
+       
+
+#         if not query_text:
+#             return JsonResponse({"error": "Missing query_text parameter"}, status=400)
+       
+#         report_generator = TrafficReportGenerator()
+       
+#         result = report_generator.generate_report(query_text)
+#         result['pdf_url'] = request.build_absolute_uri(result['pdf_url'])
+#         return JsonResponse(result)
+
+#     except json.JSONDecodeError:
+#         logger.error("Invalid JSON format received in request")
+#         return JsonResponse({"error": "Invalid JSON format"}, status=400)
+
+#     except Exception as e:
+#         logger.exception(f"Unexpected error: {e}")
+#         return JsonResponse({"error": str(e)}, status=500)
+
+
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+import json
+import logging
+from django.views.decorators.csrf import csrf_exempt
+
+
+logger = logging.getLogger(__name__)
+
+@csrf_exempt
+def generate_traffic_report(request):
+    """API endpoint for report generation"""
+    try:
+        # Parse input
+        try:
+            data = json.loads(request.body)
+            query_text = data.get('query', '').strip()
+            if not query_text:
+                return JsonResponse(
+                    {"status": "error", "error": "Empty query"}, 
+                    status=400
+                )
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"status": "error", "error": "Invalid JSON"}, 
+                status=400
+            )
+        
+        # Generate report
+        from reports.services.report_service import TrafficReportGenerator
+        generator = TrafficReportGenerator()
+        result = generator.generate_report(query_text)
+        
+        # Build full PDF URL
+        if result['status'] == 'success':
+            result['pdf_url'] = request.build_absolute_uri(result['pdf_url'])
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        logger.exception("Report endpoint failed")
+        return JsonResponse(
+            {"status": "error", "error": "Internal server error"},
+            status=500
+        )
