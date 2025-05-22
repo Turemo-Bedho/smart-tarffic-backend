@@ -9,7 +9,7 @@ from mtcnn import MTCNN
 from driver_api.models import Driver
 
 # === Constants ===
-SIMILARITY_THRESHOLD = 0.65
+SIMILARITY_THRESHOLD = 0.55
 CONFIDENCE_THRESHOLD = 0.90
 MODEL_NAME = "ArcFace" #
 

@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # === Constants ===
-SIMILARITY_THRESHOLD = 0.65  # ArcFace works best with higher threshold
+SIMILARITY_THRESHOLD = 0.5  # ArcFace works best with higher threshold
 MIN_FACE_CONFIDENCE = 0.95    # More strict face detection
 MODEL_NAME = "ArcFace"  
 

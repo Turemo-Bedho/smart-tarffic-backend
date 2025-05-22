@@ -116,8 +116,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'smart_traffic_management',
-        'USER': 'lisping',
-        'PASSWORD': 'lisping',
+        'USER': 'root',
+        'PASSWORD': 'efa22@Bod',
         'HOST': 'localhost',
         'PORT': '3306',
     }
