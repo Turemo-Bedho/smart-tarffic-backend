@@ -30,12 +30,12 @@ MODEL_NAME = "ArcFace"
 def initialize_models():
     """Initialize face detection and recognition models"""
     try:
-        logger.info("🔄 Initializing MTCNN detector...")
+        logger.info("[Loading] Initializing MTCNN detector...")
         detector = MTCNN()
-        logger.info("✅ Models initialized successfully")
+        logger.info("[SUCCES] Models initialized successfully")
         return detector
     except Exception as e:
-        logger.error(f"❌ Model initialization failed: {str(e)}")
+        logger.error(f"[FAILED] Model initialization failed: {str(e)}")
         raise
 
 detector = initialize_models()
@@ -70,6 +70,7 @@ def process_face(image):
         # Crop and align face
         face = image[y:y+h, x:x+w]
         aligned_face = align_face(face, best_face['keypoints'])
+        cv2.imwrite("debug_aligned.jpg", aligned_face)
 
         # Generate embedding using ArcFace
         embedding = DeepFace.represent(
@@ -93,27 +94,75 @@ def process_face(image):
         logger.error(f"Face processing failed: {str(e)}")
         raise
 
-def align_face(face, landmarks):
-    """Advanced face alignment using eye landmarks"""
+
+
+def align_face(face_img, landmarks): # Renamed 'face' to 'face_img' to avoid conflict with 'face' from detections
+    """Align face based on eye landmarks with robust error handling."""
     try:
-        left_eye = landmarks['left_eye']
-        right_eye = landmarks['right_eye']
-        
+        # 1. Check if landmarks for eyes are present
+        if 'left_eye' not in landmarks or 'right_eye' not in landmarks:
+            logger.warning("Alignment skipped: 'left_eye' or 'right_eye' not in landmarks.")
+            return face_img # Return original image if key landmarks are missing
+
+        left_eye_coords = landmarks['left_eye']
+        right_eye_coords = landmarks['right_eye']
+
+        # 2. Check if eye coordinates are valid 2-element sequences
+        if not (isinstance(left_eye_coords, (tuple, list)) and len(left_eye_coords) == 2 and
+                isinstance(right_eye_coords, (tuple, list)) and len(right_eye_coords) == 2):
+            logger.warning("Alignment skipped: Eye landmarks are not valid 2-element (x,y) coordinates.")
+            return face_img
+
+        # 3. Attempt to convert coordinates to float and check for conversion errors
+        try:
+            lx, ly = float(left_eye_coords[0]), float(left_eye_coords[1])
+            rx, ry = float(right_eye_coords[0]), float(right_eye_coords[1])
+        except (ValueError, TypeError) as e_convert:
+            logger.warning(f"Alignment skipped: Error converting eye coordinates to float ({str(e_convert)}).")
+            return face_img
+
+        # 4. Check for NaN or Inf values in coordinates
+        if not (np.isfinite(lx) and np.isfinite(ly) and np.isfinite(rx) and np.isfinite(ry)):
+            logger.warning("Alignment skipped: Eye coordinates contain NaN or Inf values.")
+            return face_img
+
         # Calculate rotation angle
-        dY = right_eye[1] - left_eye[1]
-        dX = right_eye[0] - left_eye[0]
-        angle = np.degrees(np.arctan2(dY, dX)) - 180
-        
+        # The -180 in your original code might be an attempt to flip;
+        # Let's stick to the standard way first, and adjust if needed.
+        dY = ry - ly
+        dX = rx - lx
+        angle = np.degrees(np.arctan2(dY, dX)) # Standard angle to make the eye-line horizontal
+
+        # Calculate center of the eyes for rotation
+        eyes_center_x = (lx + rx) / 2.0
+        eyes_center_y = (ly + ry) / 2.0
+
+        # 5. Final check for NaN or Inf in calculated eyes_center
+        if not (np.isfinite(eyes_center_x) and np.isfinite(eyes_center_y)):
+            logger.warning("Alignment skipped: Calculated eyes_center contains NaN or Inf.")
+            return face_img
+            
+        eyes_center_for_rotation = (eyes_center_x, eyes_center_y)
+
         # Get rotation matrix
-        eyes_center = ((left_eye[0] + right_eye[0]) // 2, 
-                      (left_eye[1] + right_eye[1]) // 2)
-        M = cv2.getRotationMatrix2D(eyes_center, angle, 1.0)
+        # OpenCV's getRotationMatrix2D expects center as a tuple of floats.
+        M = cv2.getRotationMatrix2D(eyes_center_for_rotation, angle, 1.0)
         
         # Apply affine transformation
-        aligned = cv2.warpAffine(face, M, (face.shape[1], face.shape[0]), 
-                               flags=cv2.INTER_CUBIC)
-        return aligned
+        # Ensure output size is (width, height)
+        output_width = face_img.shape[1]
+        output_height = face_img.shape[0]
+        
+        aligned_face = cv2.warpAffine(
+            face_img, M, (output_width, output_height),
+            flags=cv2.INTER_CUBIC,
+            borderMode=cv2.BORDER_REPLICATE # or BORDER_REFLECT, BORDER_CONSTANT etc.
+                                          # BORDER_REPLICATE is often a safe choice.
+        )
+        logger.info("[SUCCESS] Face alignment successful.")
+        return aligned_face
+
     except Exception as e:
-        logger.warning(f"Alignment failed, using original: {str(e)}")
-        print(300*"x")
-        return face
+        # This will now catch any other unexpected errors not handled by specific checks above
+        logger.error(f"[ERROR] Alignment failed unexpectedly: {str(e)}. Type: {type(e)}. Using original face.")
+        return face_img 
