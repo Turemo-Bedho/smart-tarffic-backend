@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.utils.translation import gettext_lazy as _
 
-SIMILARITY_THRESHOLD = 0.55 
+SIMILARITY_THRESHOLD = 0.65
 
 def validate_embedding(embedding):
     from .models import Driver

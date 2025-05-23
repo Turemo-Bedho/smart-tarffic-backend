@@ -9,7 +9,7 @@ from mtcnn import MTCNN
 from driver_api.models import Driver
 
 # === Constants ===
-SIMILARITY_THRESHOLD = 0.55
+SIMILARITY_THRESHOLD = 0.65
 CONFIDENCE_THRESHOLD = 0.90
 MODEL_NAME = "ArcFace" #
 
@@ -35,6 +35,53 @@ except Exception as e:
     raise
 
 
+def enhance_image(image):
+    """Improve image quality through preprocessing"""
+    try:
+        # Convert to LAB color space
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        
+        # CLAHE on L-channel
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        l = clahe.apply(l)
+        
+        # Merge channels and convert back to BGR
+        enhanced_lab = cv2.merge((l, a, b))
+        enhanced = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
+        
+        # Mild denoising
+        enhanced = cv2.fastNlMeansDenoisingColored(enhanced, None, 5, 5, 7, 21)
+        
+        return enhanced
+    except Exception as e:
+        logger.warning(f"Image enhancement failed: {str(e)}")
+        return image
+
+def estimate_image_quality(image):
+    """Estimate image quality based on sharpness and lighting"""
+    try:
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
+            
+        # Calculate sharpness (variance of Laplacian)
+        sharpness = cv2.Laplacian(gray, cv2.CV_64F).var()
+        
+        # Calculate brightness (0-1 scale)
+        brightness = np.mean(gray) / 255
+        
+        # Normalize sharpness (empirical values)
+        sharpness_score = min(max((sharpness - 20) / 180, 0), 1)
+        
+        # Combined quality score (weighted average)
+        quality = (sharpness_score * 0.7) + (brightness * 0.3)
+        
+        return quality
+    except Exception as e:
+        logger.warning(f"Quality estimation failed: {str(e)}")
+        return 0.5  # Default average quality
 
 
 def align_face(face_img, landmarks): # Renamed 'face' to 'face_img' to avoid conflict with 'face' from detections
@@ -71,7 +118,12 @@ def align_face(face_img, landmarks): # Renamed 'face' to 'face_img' to avoid con
         # The -180 in your original code might be an attempt to flip;
         dY = ry - ly
         dX = rx - lx
-        angle = np.degrees(np.arctan2(dY, dX)) # Standard angle to make the eye-line horizontal
+        angle = np.degrees(np.arctan2(dY, dX))
+         # Standard angle to make the eye-line horizontal
+        if angle > 45:
+            angle -= 180
+        elif angle < -45:
+            angle += 180
 
         # Calculate center of the eyes for rotation
         eyes_center_x = (lx + rx) / 2.0
@@ -108,14 +160,17 @@ def align_face(face_img, landmarks): # Renamed 'face' to 'face_img' to avoid con
 
 
 
-def get_face_embedding(face_image, landmarks=None):
+def get_face_embedding(face_image, landmarks):
     """Generate face embedding using ArcFace via DeepFace"""
     try:
         if landmarks:
             face_image = align_face(face_image, landmarks)
+            print("Aligned face: Success" * 10)
 
         # Convert to RGB format
         face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+        # face_aligned_resized = cv2.resize(face_image, (112, 112))
+
 
         # Generate embedding using DeepFace (ArcFace model)
         embedding = DeepFace.represent(face_image, model_name=MODEL_NAME, enforce_detection=False, detector_backend="skip")[0]["embedding"]
@@ -163,9 +218,23 @@ def recognize_face_one(image):
     try:
         if image is None:
             return None, None
+        # Initial quality check
+        img_quality = estimate_image_quality(image)
+        if img_quality < 0.3:
+            # raise Exception(f"Image quality too low: {img_quality:.2f}")
+            print(f"Image quality too low: {img_quality:.2f}")
+            image = enhance_image(image)
+
+        # Resize large images first (maintaining aspect ratio)
+        max_dim = 1024  # Adjust based on your needs
+        h, w = image.shape[:2]
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            image = cv2.resize(image, (int(w*scale), int(h*scale)))
 
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         detections = detector.detect_faces(image_rgb)
+        print("Detections:" * 10)
 
         if not detections:
             return None, image

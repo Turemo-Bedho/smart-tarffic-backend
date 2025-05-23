@@ -32,6 +32,7 @@ class DriverView(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         image_file = self.request.FILES['profile_image']
+        print("Image accessed"*10)
         if not image_file:
             return JsonResponse({'error': 'No image provided'}, status=400)
 
@@ -39,14 +40,21 @@ class DriverView(viewsets.ModelViewSet):
         
         try:
             image = cv2.imdecode(np.frombuffer(image_file.read(), np.uint8), cv2.IMREAD_COLOR)
+            print("Image decoded"*10)
             embedding, aligned_face = process_face(image)
+            print("Image processed"*10)
             validate_embedding(embedding)
+            print("Image validated"*10)
         except DjangoValidationError as e:
             raise DRFValidationError({'embedding': e.messages})
         except Exception as e:
             raise DRFValidationError({'embedding': "The image could not be processed."})
+        
+
         embedding_json = json.dumps(embedding.tolist())
+        print("Image converted to json"*10)
         serializer.save(embedding=embedding_json)
+        print("Image saved"*10)
         return super().perform_create(serializer)
     
     @action(detail=False, methods=['post'], url_path='identify')

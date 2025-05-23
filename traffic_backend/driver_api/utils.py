@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # === Constants ===
-SIMILARITY_THRESHOLD = 0.5  # ArcFace works best with higher threshold
+SIMILARITY_THRESHOLD = 0.65  # ArcFace works best with higher threshold
 MIN_FACE_CONFIDENCE = 0.95    # More strict face detection
 MODEL_NAME = "ArcFace"  
 
@@ -49,10 +49,17 @@ def process_face(image):
     4. Generate embedding
     """
     try:
+        # Resize large images first (maintaining aspect ratio)
+        max_dim = 1024  # Adjust based on your needs
+        h, w = image.shape[:2]
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            image = cv2.resize(image, (int(w*scale), int(h*scale)))
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         # Detect faces with high confidence
         detections = detector.detect_faces(rgb_image)
+        print("Detections:" * 10)
         if not detections:
             raise ValueError("No faces detected")
 
@@ -70,6 +77,7 @@ def process_face(image):
         # Crop and align face
         face = image[y:y+h, x:x+w]
         aligned_face = align_face(face, best_face['keypoints'])
+        print("Aligned face:" * 10)
         cv2.imwrite("debug_aligned.jpg", aligned_face)
 
         # Generate embedding using ArcFace
@@ -77,8 +85,9 @@ def process_face(image):
             cv2.cvtColor(aligned_face, cv2.COLOR_BGR2RGB),
             model_name=MODEL_NAME,
             enforce_detection=False,
-            detector_backend='skip'
+            detector_backend='skip',
         )[0]["embedding"]
+        print("Embedding:" * 10)
 
         # Normalize embedding
         embedding = np.array(embedding)
@@ -98,6 +107,7 @@ def process_face(image):
 
 def align_face(face_img, landmarks): # Renamed 'face' to 'face_img' to avoid conflict with 'face' from detections
     """Align face based on eye landmarks with robust error handling."""
+    print("Aligning face..."*10)
     try:
         # 1. Check if landmarks for eyes are present
         if 'left_eye' not in landmarks or 'right_eye' not in landmarks:
@@ -160,6 +170,7 @@ def align_face(face_img, landmarks): # Renamed 'face' to 'face_img' to avoid con
                                           # BORDER_REPLICATE is often a safe choice.
         )
         logger.info("[SUCCESS] Face alignment successful.")
+        print("Aligned face: Success" * 10)
         return aligned_face
 
     except Exception as e:
