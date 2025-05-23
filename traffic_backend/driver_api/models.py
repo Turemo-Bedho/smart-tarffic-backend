@@ -54,7 +54,6 @@ class Driver(models.Model):
         null=False
     )
     profile_image = models.ImageField(upload_to="profile/images", null=False)
-    embedding = models.JSONField(null=False, validators=[validate_embedding]) 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -115,11 +115,11 @@ WSGI_APPLICATION = "traffic_backend.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'smart_traffic_management',
-        'USER': 'root',
-        'PASSWORD': 'efa22@Bod',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'NAME': 'database-1',
+        'USER': 'lisping',
+        'PASSWORD': 'Lisping#ab#12#ab#12',
+        'HOST': 'e-commerce-project-database.cfqo0emaopvz.us-east-1.rds.amazonaws.com',
+        'PORT': 3306,
     }
 }
 
@@ -157,9 +157,21 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = "static/"
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+TORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+    },
+    "staticfiles": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+    },
+}
+
+# Set your S3 bucket name
+AWS_STORAGE_BUCKET_NAME = "drivers-images-traffic"
+AWS_S3_REGION_NAME = "us-east-1"
+AWS_QUERYSTRING_AUTH = False  # Optional, makes URLs public without signed URLs
+AWS_DEFAULT_ACL = None  # Recommended to avoid setting default ACLs
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

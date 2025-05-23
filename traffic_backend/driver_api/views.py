@@ -11,11 +11,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.decorators import action
 from .models import Driver
-from .face_recognition import recognize_face_one
 import cv2
 import numpy as np
-from .utils import process_face
-from .validators import validate_embedding
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.conf import settings
@@ -56,6 +53,7 @@ class DriverView(viewsets.ModelViewSet):
         serializer.save(embedding=embedding_json)
         print("Image saved"*10)
         return super().perform_create(serializer)
+    
     
     @action(detail=False, methods=['post'], url_path='identify')
     def identify_driver(self, request):
