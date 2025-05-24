@@ -35,6 +35,30 @@ SECRET_KEY = "django-insecure-1!tawziy#ahwm+z01jhi6_7o)(z7po_%_q*tg*ha04c5i_rg(#
 
 # SECURITY WARNING: don't runpython manage.py runserver 192.168.60.99:8000 with debug turned on in production!
 DEBUG = True
+from decouple import config
+
+DEBUG = True # Keep True for local development
+
+# ... (existing development settings) ...
+
+# AWS S3 Settings
+# Use environment variables for local credentials
+AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME') # Your S3 media bucket name
+AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME') # e.g., 'us-east-1', 'eu-central-1'
+
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# Optional: Set a subdirectory for media files in your S3 bucket
+MEDIAFILES_LOCATION = 'media'
+MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/{MEDIAFILES_LOCATION}/"
+
+# AWS Rekognition Settings
+AWS_REKOGNITION_COLLECTION_ID = config('AWS_REKOGNITION_COLLECTION_ID', default='smart-traffic-faces')
+
 
 APPEND_SLASH = False 
 
@@ -115,10 +139,10 @@ WSGI_APPLICATION = "traffic_backend.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'database-1',
+        'NAME': 'smart_traffic_management',
         'USER': 'lisping',
         'PASSWORD': 'Lisping#ab#12#ab#12',
-        'HOST': 'e-commerce-project-database.cfqo0emaopvz.us-east-1.rds.amazonaws.com',
+        'HOST': 'smart-traffic-db.c2v4qc482vy7.us-east-1.rds.amazonaws.com',
         'PORT': 3306,
     }
 }
@@ -157,7 +181,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-TORAGES = {
+STORAGES = {
     "default": {
         "BACKEND": "storages.backends.s3.S3Storage",
     },
@@ -166,12 +190,10 @@ TORAGES = {
     },
 }
 
-# Set your S3 bucket name
-AWS_STORAGE_BUCKET_NAME = "drivers-images-traffic"
-AWS_S3_REGION_NAME = "us-east-1"
-AWS_QUERYSTRING_AUTH = False  # Optional, makes URLs public without signed URLs
-AWS_DEFAULT_ACL = None  # Recommended to avoid setting default ACLs
 
+STATIC_URL = "static/"
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

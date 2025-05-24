@@ -1,6 +1,5 @@
 from django.db import models
 from django.conf import settings
-from .validators import validate_embedding
 
 class Officer(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True)
@@ -131,18 +130,3 @@ class Ticket(models.Model):
 
     def __str__(self):
         return f"Ticket for Driver ID {self.violation.driver.id}"
-    
-
-
-
-
-
-# class AuditLog(models.Model):
-#     ACTION_CHOICES = [('CREATE', 'Create'), ('UPDATE', 'Update'), ('DELETE', 'Delete')]
-
-#     entity_type = models.CharField(max_length=50, null=False)
-#     entity_id = models.PositiveIntegerField(null=False)
-#     action = models.CharField(max_length=20, choices=ACTION_CHOICES, null=False)
-#     performed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
-#     changes = models.JSONField(null=True)
-#     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Driver, Address, Officer
+from .models import Driver, Address, Officer, ViolationType, Vehicle, Violation
 from django.contrib.auth import get_user_model
 
 
@@ -38,3 +38,62 @@ class DriverSerializer(serializers.ModelSerializer):
             'license_issue_date', 'blood_type', 'profile_image', 'created_at', 'updated_at', 'addresses'
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+
+class ViolationTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ViolationType
+        fields = ['id', 'name', 'description', 'fine_amount', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+class VehicleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vehicle
+        fields = [
+            'id', 'license_plate', 'make', 'model', 'year',
+            'color', 'vin', 'registration_date', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+class ViolationSerializer(serializers.ModelSerializer):
+    driver = serializers.PrimaryKeyRelatedField(queryset=Driver.objects.all(), write_only=True)
+    violation_type = serializers.PrimaryKeyRelatedField(queryset=ViolationType.objects.all(), write_only=True)
+    license_plate = serializers.CharField(max_length=20, write_only=True)
+    
+    # Read-only representations
+    vehicle_detail = VehicleSerializer(source='vehicle', read_only=True)
+    driver_detail = DriverSerializer(source='driver', read_only=True)
+    violation_type_detail = ViolationTypeSerializer(source='violation_type', read_only=True)
+    officer_detail = OfficerSerializer(source='issued_by_officer', read_only=True)
+
+    class Meta:
+        model = Violation
+        fields = [
+            'id',
+            # Writeable fields
+            'driver', 'violation_type', 'license_plate', 'location',
+            # Read-only detailed representations
+            'vehicle_detail', 'driver_detail', 'violation_type_detail', 'officer_detail',
+            # Automatic fields
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def validate(self, data):
+        try:
+            data['vehicle'] = Vehicle.objects.get(license_plate=data['license_plate'])
+        except Vehicle.DoesNotExist:
+            raise serializers.ValidationError({
+                'license_plate': 'Vehicle with this license plate does not exist'
+            })
+
+        return data
+
+    def create(self, validated_data):
+        validated_data['issued_by_officer_id'] = self.context['user_id']
+        
+        validated_data.pop('license_plate', None)
+
+        return super().create(validated_data)
+    
+

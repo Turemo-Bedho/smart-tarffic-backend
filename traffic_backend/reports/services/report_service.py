@@ -1,136 +1,3 @@
-# import json
-# import base64
-# import logging
-# from datetime import datetime
-# from django.db import connection
-# from io import BytesIO
-# from reportlab.lib.pagesizes import letter
-# from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
-# from reportlab.lib.styles import getSampleStyleSheet
-# from reportlab.lib import colors
-
-# logger = logging.getLogger(__name__)
-
-# class TrafficReportGenerator:
-#     def generate_report(self, query_text: str) -> dict:
-#         """Main pipeline for report generation"""
-#         from .gemini_service import GeminiTrafficParser
-#         parser = GeminiTrafficParser()
-#         parsed = parser.parse_query(query_text)
-
-#         if parsed.get('confidence') == 'low':
-#             logger.error(f"Low confidence parsing: {parsed.get('error_message')}")
-#             return {"error": f"Parsing failed: {parsed.get('error_message')}"}
-
-#         results = self._execute_sql(parsed)
-#         pdf_bytes = self._create_pdf(query_text, parsed['entities'], results)
-
-#         return {
-#             'metadata': parsed,
-#             'data': results,
-#             'pdf_base64': base64.b64encode(pdf_bytes).decode('utf-8')
-#         }
-
-#     def _execute_sql(self, parsed: dict) -> list:
-#         """Executes parameterized SQL queries for reports"""
-#         base_query = """
-#         SELECT d.license_number, d.first_name || ' ' || d.last_name as driver_name,
-#                v.created_at as violation_date, vt.name as violation_type, vt.fine_amount,
-#                ve.license_plate, ve.make || ' ' || ve.model as vehicle, t.status as ticket_status
-#         FROM violations v
-#         JOIN drivers d ON v.driver_id = d.id
-#         JOIN vehicles ve ON v.vehicle_id = ve.id
-#         JOIN violation_types vt ON v.violation_type_id = vt.id
-#         LEFT JOIN tickets t ON v.id = t.violation_id
-#         """
-        
-#         where_clauses = []
-#         params = []
-#         entities = parsed['entities']
-
-#         if entities.get('license_number'):
-#             where_clauses.append("d.license_number = %s")
-#             params.append(entities['license_number'])
-
-#         if entities.get('license_plate'):
-#             where_clauses.append("ve.license_plate LIKE %s")
-#             params.append(f"{entities['license_plate']}%")
-
-#         if entities.get('violation_type'):
-#             where_clauses.append("vt.name = %s")
-#             params.append(entities['violation_type'])
-
-#         if entities.get('ticket_status'):
-#             where_clauses.append("t.status = %s")
-#             params.append(entities['ticket_status'])
-
-#         if entities.get('date_range'):
-#             start, end = entities['date_range'].get('start'), entities['date_range'].get('end')
-#             if start and end:
-#                 where_clauses.append("v.created_at BETWEEN %s AND %s")
-#                 params.extend([start, end])
-
-#         if where_clauses:
-#             base_query += " WHERE " + " AND ".join(where_clauses)
-
-#         try:
-#             with connection.cursor() as cursor:
-#                 cursor.execute(base_query, params)
-#                 columns = [col[0] for col in cursor.description]
-#                 return [dict(zip(columns, row)) for row in cursor.fetchall()]
-#         except Exception as e:
-#             logger.exception(f"SQL Execution Error: {e}")
-#             return []
-
-#     def _create_pdf(self, query_text: str, filters: dict, results: list) -> bytes:
-#         """Generates a traffic violation report as a PDF"""
-#         buffer = BytesIO()
-#         doc = SimpleDocTemplate(buffer, pagesize=letter)
-#         styles = getSampleStyleSheet()
-#         elements = []
-
-#         # Report Header
-#         elements.append(Paragraph("Traffic Violation Report", styles['Title']))
-#         elements.append(Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles['Italic']))
-#         elements.append(Paragraph(f"Query: {query_text}", styles['Normal']))
-
-#         # Filters Table
-#         if filters:
-#             filter_data = [['Filter', 'Value']]
-#             for key, value in filters.items():
-#                 filter_data.append([key, json.dumps(value) if isinstance(value, dict) else str(value)])
-
-#             elements.append(Paragraph("Filters Applied:", styles['Heading2']))
-#             elements.append(Table(filter_data, style=[
-#                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-#                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
-#             ]))
-
-#         # Results Table
-#         if results:
-#             headers = list(results[0].keys())
-#             table_data = [headers] + [[str(item[h]) for h in headers] for item in results]
-
-#             elements.append(Paragraph("Results:", styles['Heading2']))
-#             elements.append(Table(table_data, repeatRows=1, style=[
-#                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
-#                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-#                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-#                 ('FONTSIZE', (0, 0), (-1, -1), 8),
-#                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
-#             ]))
-#         else:
-#             elements.append(Paragraph("No results found", styles['Heading3']))
-
-#         doc.build(elements)
-#         buffer.seek(0)
-#         return buffer.read()
-
-
-
-
-
-
 import os
 import logging
 from uuid import uuid4
@@ -142,8 +9,10 @@ from reportlab.lib import colors, pagesizes
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
 from typing import Dict, List, Optional
-logger = logging.getLogger(__name__)
+import boto3
+from botocore.exceptions import ClientError
 
+logger = logging.getLogger(__name__)
 
 class TrafficReportGenerator:
     def generate_report(self, query_text: str) -> Dict:
@@ -168,10 +37,28 @@ class TrafficReportGenerator:
                 query_type=parsed['query_type']
             )
             
+            # Generate signed URL for the PDF (optional, if private access is needed)
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_S3_REGION_NAME
+            )
+            pdf_url = f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{pdf_path}"
+            # Uncomment the following to use signed URLs instead of public URLs
+            # pdf_url = s3_client.generate_presigned_url(
+            #     'get_object',
+            #     Params={
+            #         'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
+            #         'Key': pdf_path
+            #     },
+            #     ExpiresIn=3600  # URL valid for 1 hour
+            # )
+            
             return {
                 "status": "success",
                 "data": data,
-                "pdf_url": f"{settings.MEDIA_URL}{pdf_path}",
+                "pdf_url": pdf_url,
                 "metadata": {
                     "query_type": parsed['query_type'],
                     "confidence": parsed['confidence'],
@@ -211,7 +98,7 @@ class TrafficReportGenerator:
 
     def _create_pdf(self, query_text: str, sql_query: str, 
                    results: List[Dict], query_type: str) -> str:
-        """Generates professional PDF report"""
+        """Generates professional PDF report and uploads to S3"""
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -283,13 +170,37 @@ class TrafficReportGenerator:
             elements.append(Paragraph("No results found", styles['Heading3']))
         
         doc.build(elements)
+        buffer.seek(0)
         
-        # Save to unique filename
-        os.makedirs(os.path.join(settings.MEDIA_ROOT, 'reports'), exist_ok=True)
-        filename = f"reports/report_{uuid4().hex}.pdf"
-        full_path = os.path.join(settings.MEDIA_ROOT, filename)
-        
-        with open(full_path, 'wb') as f:
-            f.write(buffer.getvalue())
+        # Upload to S3
+        try:
+            # Initialize S3 client
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_S3_REGION_NAME
+            )
             
-        return filename
+            # Generate unique filename for S3
+            filename = f"reports/report_{uuid4().hex}.pdf"
+            
+            # Upload the file to S3 without ACL
+            s3_client.upload_fileobj(
+                buffer,
+                settings.AWS_STORAGE_BUCKET_NAME,
+                filename,
+                ExtraArgs={
+                    'ContentType': 'application/pdf'
+                }
+            )
+            
+            logger.info(f"Successfully uploaded PDF to S3: {filename}")
+            return filename
+            
+        except ClientError as e:
+            logger.error(f"Failed to upload PDF to S3: {str(e)}")
+            raise Exception(f"Failed to upload PDF to S3: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error while uploading PDF to S3: {str(e)}")
+            raise Exception(f"Unexpected error while uploading PDF to S3: {str(e)}")
