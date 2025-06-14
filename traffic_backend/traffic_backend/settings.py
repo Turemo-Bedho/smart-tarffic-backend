@@ -141,9 +141,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'smart_traffic_management',
         'USER': 'lisping',
-        'PASSWORD': 'Lisping#ab#12#ab#12',
-        'HOST': 'smart-traffic-db.c2v4qc482vy7.us-east-1.rds.amazonaws.com',
-        'PORT': 3306,
+        'PASSWORD': 'lisping',
+        'HOST': 'localhost',
     }
 }
 

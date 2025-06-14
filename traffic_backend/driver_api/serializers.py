@@ -57,13 +57,21 @@ class VehicleSerializer(serializers.ModelSerializer):
 
 class ViolationSerializer(serializers.ModelSerializer):
     driver = serializers.PrimaryKeyRelatedField(queryset=Driver.objects.all(), write_only=True)
-    violation_type = serializers.PrimaryKeyRelatedField(queryset=ViolationType.objects.all(), write_only=True)
+    violation_types = serializers.PrimaryKeyRelatedField(  # Changed field name (plural)
+        queryset=ViolationType.objects.all(),
+        many=True,  # Critical change for M2M
+        write_only=True
+    )
     license_plate = serializers.CharField(max_length=20, write_only=True)
     
     # Read-only representations
     vehicle_detail = VehicleSerializer(source='vehicle', read_only=True)
     driver_detail = DriverSerializer(source='driver', read_only=True)
-    violation_type_detail = ViolationTypeSerializer(source='violation_type', read_only=True)
+    violation_types_detail = ViolationTypeSerializer(  # Changed field name (plural)
+        source='violation_type', 
+        many=True,  # Reflects M2M relationship
+        read_only=True
+    )
     officer_detail = OfficerSerializer(source='issued_by_officer', read_only=True)
 
     class Meta:
@@ -71,29 +79,35 @@ class ViolationSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             # Writeable fields
-            'driver', 'violation_type', 'license_plate', 'location',
+            'driver', 'violation_types', 'license_plate', 'location',  # Changed field name
             # Read-only detailed representations
-            'vehicle_detail', 'driver_detail', 'violation_type_detail', 'officer_detail',
+            'vehicle_detail', 'driver_detail', 'violation_types_detail', 'officer_detail',  # Changed
             # Automatic fields
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
 
     def validate(self, data):
+        # License plate validation remains the same
         try:
             data['vehicle'] = Vehicle.objects.get(license_plate=data['license_plate'])
         except Vehicle.DoesNotExist:
             raise serializers.ValidationError({
                 'license_plate': 'Vehicle with this license plate does not exist'
             })
-
         return data
 
     def create(self, validated_data):
+        # Extract M2M data before creation
+        violation_types = validated_data.pop('violation_types', [])
         validated_data['issued_by_officer_id'] = self.context['user_id']
-        
         validated_data.pop('license_plate', None)
-
-        return super().create(validated_data)
-    
+        
+        # Create violation instance
+        violation = super().create(validated_data)
+        
+        # Set M2M relationship
+        violation.violation_type.set(violation_types)  # Changed to use .set()
+        
+        return violation
 

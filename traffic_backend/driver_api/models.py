@@ -98,7 +98,7 @@ class Violation(models.Model):
         on_delete=models.CASCADE,
         related_name='violations'
     )
-    violation_type = models.ForeignKey(ViolationType, on_delete=models.PROTECT, related_name='violations')
+    violation_type = models.ManyToManyField(ViolationType, related_name='violations')
     issued_by_officer = models.ForeignKey(
         Officer,
         on_delete=models.SET_NULL,
