@@ -35,6 +35,30 @@ SECRET_KEY = "django-insecure-1!tawziy#ahwm+z01jhi6_7o)(z7po_%_q*tg*ha04c5i_rg(#
 
 # SECURITY WARNING: don't runpython manage.py runserver 192.168.60.99:8000 with debug turned on in production!
 DEBUG = True
+from decouple import config
+
+DEBUG = True # Keep True for local development
+
+# ... (existing development settings) ...
+
+# AWS S3 Settings
+# Use environment variables for local credentials
+AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME') # Your S3 media bucket name
+AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME') # e.g., 'us-east-1', 'eu-central-1'
+
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# Optional: Set a subdirectory for media files in your S3 bucket
+MEDIAFILES_LOCATION = 'media'
+MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/{MEDIAFILES_LOCATION}/"
+
+# AWS Rekognition Settings
+AWS_REKOGNITION_COLLECTION_ID = config('AWS_REKOGNITION_COLLECTION_ID', default='smart-traffic-faces')
+
 
 APPEND_SLASH = False 
 
@@ -116,10 +140,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'smart_traffic_management',
-        'USER': 'root',
-        'PASSWORD': 'efa22@Bod',
+        'USER': 'lisping',
+        'PASSWORD': 'lisping',
         'HOST': 'localhost',
-        'PORT': '3306',
     }
 }
 
@@ -156,6 +179,16 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
+
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+    },
+    "staticfiles": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+    },
+}
+
 
 STATIC_URL = "static/"
 MEDIA_URL = '/media/'

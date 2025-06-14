@@ -1,147 +1,3 @@
-
-# import json
-# import logging
-# from django.conf import settings
-# import google.generativeai as genai
-# from datetime import datetime, timedelta
-# import re
-
-# logger = logging.getLogger(__name__)
-
-# class GeminiTrafficParser:
-#     def __init__(self):
-#         if not hasattr(settings, 'GEMINI_API_KEY'):
-#             raise ValueError("GEMINI_API_KEY missing in Django settings")
-
-#         genai.configure(api_key=settings.GEMINI_API_KEY)
-#         self.model = genai.GenerativeModel('gemini-1.5-flash-latest')
-#         self.safety_settings = {
-#             'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
-#             'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
-#             'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
-#             'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE'
-#         }
-
-#     def _get_schema_prompt(self) -> str:
-#         """Returns formatted database schema for Gemini."""
-#         return """
-#         Database Schema(Table → Fields):
-#         - driver_api_driver: id, license_number, first_name, last_name, sex, phone_number,nationality, license_issue_date,
-#         - driver_api_vehicle: license_plate, make, model, year, color, registration_date
-#         - driver_api_violation: driver_id, vehicle_id, violation_type_id, issued_by_officer_id, location, created_at
-#         - driver_api_ticket: violation_id, status (PENDING/PAID/FAILED), reference_code, issued_at
-#         - driver_api_officer: user_id, badge_number
-#         - driver_api_address: id, street, city, state, zip_code
-#         -driver_api_violationtype: id, name, description
-#         """
-
-#     def _standardize_entities(self, entities: dict) -> dict:
-#         """Normalizes extracted entities to prevent processing errors."""
-#         if 'license_number' in entities and entities['license_number']:
-#             entities['license_number'] = re.sub(r'[^A-Z0-9]', '', str(entities['license_number'])).upper()
-#         else:
-#             entities['license_number'] = None
-
-#         if 'license_plate' in entities and entities['license_plate']:
-#             entities['license_plate'] = re.sub(r'[^A-Z0-9]', '', str(entities['license_plate'])).upper()
-#         else:
-#             entities['license_plate'] = None
-
-#         violation_mappings = {
-#             'speed': 'SPEEDING',
-#             'helmet': 'NO_HELMET',
-#             'light': 'RED_LIGHT_VIOLATION'
-#         }
-#         if 'violation_type' in entities and entities['violation_type']:
-#             v_type = entities['violation_type'].lower()
-#             entities['violation_type'] = violation_mappings.get(v_type, v_type.upper())
-#         else:
-#             entities['violation_type'] = None
-
-#         if 'date_range' in entities:
-#             entities['date_range'] = self._parse_relative_date(entities['date_range'])
-
-#         return entities
-
-#     def _parse_relative_date(self, term: str) -> dict:
-#         """Parses relative dates into absolute ranges."""
-#         today = datetime.now().date()
-#         date_mapping = {
-#             'today': (today, today),
-#             'yesterday': (today - timedelta(days=1), today - timedelta(days=1)),
-#             'last week': (today - timedelta(days=7), today),
-#             'this month': (today.replace(day=1), today)
-#         }
-
-#         if isinstance(term, str) and term.lower() in date_mapping:
-#             start, end = date_mapping[term.lower()]
-#             return {'start': start.strftime('%Y-%m-%d'), 'end': end.strftime('%Y-%m-%d')}
-        
-#         return {'start': None, 'end': None}
-
-#     def parse_query(self, query_text: str) -> dict:
-#         """Generates structured JSON response based on the AI model's output."""
-#         prompt = f"""
-#         Convert this query to JSON:
-
-#         Query: "{query_text}"
-
-#         {self._get_schema_prompt()}
-
-#         Output Format:
-#         {{
-#           "action": "driver_report|vehicle_report|violation_search|ticket_status",
-#           "entities": {{
-#             "license_number": str|null,
-#             "license_plate": str|null,
-#             "violation_type": str|null,
-#             "date_range": {{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}}|null,
-#             "ticket_status": "PENDING|PAID|FAILED"|null
-#           }},
-#           "confidence": "high|medium|low",
-#           "sql_hint": "Suggested JOINs: drivers → violations → vehicles"
-#         }}
-#         """
-
-#         try:
-#             response = self.model.generate_content(
-#                 prompt,
-#                 generation_config=genai.types.GenerationConfig(
-#                     temperature=0.1,
-#                     top_p=0.9,
-#                     response_mime_type="application/json"
-#                 ),
-#                 safety_settings=self.safety_settings
-#             )
-
-#             # print("Raw Gemini Response:", response)  # Debugging
-
-#             # Extract JSON response safely
-#             if response and response.candidates:
-#                 json_response = response.candidates[0].content.parts[0].text.strip()
-#             else:
-#                 logger.error("Gemini AI did not return valid candidates.")
-#                 return {"action": "error", "error_message": "No candidates received from AI", "confidence": "low"}
-
-#             result = json.loads(json_response)
-
-#             # Standardize entities to avoid `NoneType` errors
-#             result['entities'] = self._standardize_entities(result.get('entities', {}))
-
-#             return result
-
-#         except json.JSONDecodeError as e:
-#             logger.error(f"JSON Parsing Error: {str(e)}")
-#             return {"action": "error", "error_message": "Invalid JSON format from AI", "confidence": "low"}
-
-#         except Exception as e:
-#             logger.error(f"Gemini API Error: {str(e)}")
-#             return {"action": "error", "error_message": str(e), "confidence": "low"}
-
-
-
-
-
 import json
 import logging
 import re
@@ -161,7 +17,7 @@ class GeminiTrafficParser:
         self.model = genai.GenerativeModel(
             'gemini-1.5-flash-latest',
             generation_config={
-                "temperature": 0.2,  # Slightly higher for flexibility
+                "temperature": 0.2,
                 "top_p": 0.95,
                 "response_mime_type": "application/json"
             }
@@ -180,7 +36,10 @@ class GeminiTrafficParser:
             'helmet': 'NO_HELMET',
             'light': 'RED_LIGHT_VIOLATION',
             'red light': 'RED_LIGHT_VIOLATION',
-            'license': 'LICENSE_VIOLATION'
+            'license': 'LICENSE_VIOLATION',
+            'no helmet': 'NO_HELMET',
+            'red light violation': 'RED_LIGHT_VIOLATION',
+            'license violation': 'LICENSE_VIOLATION'
         }
         
         self.status_mapping = {
@@ -190,8 +49,6 @@ class GeminiTrafficParser:
             'pending': 'PENDING'
         }
 
-
-
     def _get_schema_context(self) -> str:
         """Returns complete schema with correct table names and relationships"""
         return """
@@ -199,35 +56,42 @@ class GeminiTrafficParser:
 
         ### Core Entities:
         1. driver_api_driver (d):
-           - id, license_number, first_name, last_name, date_of_birth, sex,
-           - phone_number, nationality, license_issue_date, blood_type
+           - id, license_number, first_name, middle_name, last_name, date_of_birth, sex,
+           - phone_number, nationality, license_issue_date, blood_type, profile_image,
+           - created_at, updated_at
 
         2. driver_api_vehicle (ve):
-           - id, license_plate, make, model, year, color, vin, registration_date
+           - id, license_plate, make, model, year, color, vin, registration_date,
+           - created_at, updated_at
 
         3. driver_api_violation (v):
-           - id, driver_id, vehicle_id, violation_type_id, issued_by_officer_id,
-           - location, created_at, updated_at
+           - id, driver_id, vehicle_id, issued_by_officer_id, location,
+           - created_at, updated_at
 
         4. driver_api_ticket (t):
-           - violation_id, status (PENDING/PAID/FAILED), reference_code, note,
+           - violation_id (primary key), status (PENDING/PAID/FAILED), reference_code, note,
            - issued_at, updated_at
 
         5. driver_api_violationtype (vt):
-           - id, name (e.g., SPEEDING), description, fine_amount
+           - id, name (e.g., SPEEDING), description, fine_amount, created_at, updated_at
 
         6. driver_api_officer (o):
-           - user_id, badge_number
+           - user_id (primary key), badge_number
 
         7. driver_api_address (a):
-           - id, driver_id, region, woreda, house_number, street, city, postal_code
+           - id, driver_id, region, woreda, house_number, street, city, postal_code,
+           - created_at, updated_at
+
+        8. driver_api_violation_violation_type (v_vt):
+           - id, violation_id, violationtype_id (many-to-many relationship table)
 
         ### Key Relationships:
         - Driver 1→N Violations
         - Vehicle 1→N Violations
         - Violation 1→1 Ticket
-        - Violation N→1 ViolationType
+        - Violation N→M ViolationType (through v_vt table)
         - Driver 1→N Addresses
+        - Violation N→1 Officer (issuer)
         """
 
     def _build_dynamic_prompt(self, query: str) -> str:
@@ -253,7 +117,9 @@ class GeminiTrafficParser:
             "officer_badge": str|null,
             "location": str|null,
             "vehicle_make": str|null,
-            "driver_attribute": str|null
+            "driver_attribute": str|null,
+            "driver_name": str|null,
+            "violation_id": int|null
           }},
           "confidence": "high|medium|low",
           "query_type": "driver|vehicle|violation|ticket|officer|combined"
@@ -268,22 +134,29 @@ class GeminiTrafficParser:
            - vt = driver_api_violationtype
            - o = driver_api_officer
            - a = driver_api_address
+           - v_vt = driver_api_violation_violation_type
 
-        2. Always include:
-           - LIMIT 1000 unless user explicitly asks for a single driver or one license number
-           - JOIN conditions using correct aliases
+        2. Important Notes:
+           - Violation to ViolationType is MANY-TO-MANY relationship (use v_vt join table)
+           - Ticket has ONE-TO-ONE relationship with Violation
+           - Officer is optional in Violation (can be NULL)
 
-        3. For date ranges:
+        3. Always include:
+           - LIMIT 1000 unless user explicitly asks for a single record
+           - Proper JOIN conditions using correct aliases
+           - Handle NULL officer cases in violations
+
+        4. For date ranges:
            - Use v.created_at for violation dates
            - Support natural date terms (e.g., "last week", "this year")
 
-        4. Standardize values:
+        5. Standardize values:
            - UPPERCASE for license numbers/plates
            - Predefined violation types
            - Mapped ticket statuses
+           - Handle driver names (first_name, middle_name, last_name)
         """
 
-    
     def _standardize_entities(self, entities: Dict) -> Dict:
         """Normalizes all extracted entities"""
         # License/Plate standardization
@@ -306,6 +179,19 @@ class GeminiTrafficParser:
             if isinstance(entities['date_range'], str):
                 entities['date_range'] = self._parse_relative_date(entities['date_range'])
         
+        # Handle driver name components
+        if entities.get('driver_name'):
+            name_parts = entities['driver_name'].split()
+            if len(name_parts) >= 3:
+                entities['first_name'] = name_parts[0]
+                entities['middle_name'] = ' '.join(name_parts[1:-1])
+                entities['last_name'] = name_parts[-1]
+            elif len(name_parts) == 2:
+                entities['first_name'] = name_parts[0]
+                entities['last_name'] = name_parts[1]
+            elif len(name_parts) == 1:
+                entities['last_name'] = name_parts[0]
+        
         return entities
 
     def _parse_relative_date(self, term: str) -> Dict:
@@ -322,7 +208,9 @@ class GeminiTrafficParser:
                 (today.replace(day=1) - timedelta(days=1)).replace(day=1),
                 today.replace(day=1) - timedelta(days=1)
             ),
-            'this year': (today.replace(month=1, day=1), today)
+            'this year': (today.replace(month=1, day=1), today),
+            'last year': (today.replace(year=today.year-1, month=1, day=1),
+                         today.replace(year=today.year-1, month=12, day=31))
         }
         
         if term in date_map:
@@ -344,8 +232,8 @@ class GeminiTrafficParser:
             result = json.loads(json_str)
             
             # Validate and standardize
-            # if not result.get('query', '').upper().startswith('SELECT'):
-            #     raise ValueError("Generated query must be SELECT operation")
+            if not result.get('query', '').upper().startswith('SELECT'):
+                raise ValueError("Generated query must be SELECT operation")
             
             result['entities'] = self._standardize_entities(result.get('entities', {}))
             

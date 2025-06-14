@@ -27,4 +27,4 @@ urlpatterns = [
     path('auth/', include('djoser.urls.jwt')),
     path('traffic/', include('driver_api.urls')), # Include driver_api URLs
     path('generate-report/', generate_traffic_report),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
