@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Driver, Address, Officer, ViolationType, Vehicle, Violation
+from .models import Driver, Address, Officer, ViolationType, Vehicle, Violation, DeviceToken, Ticket
 from django.contrib.auth import get_user_model
 
 
@@ -55,40 +55,44 @@ class VehicleSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['created_at', 'updated_at']
 
+import uuid  # Import for generating unique reference codes
+
 class ViolationSerializer(serializers.ModelSerializer):
     driver = serializers.PrimaryKeyRelatedField(queryset=Driver.objects.all(), write_only=True)
-    violation_types = serializers.PrimaryKeyRelatedField(  # Changed field name (plural)
+    violation_types = serializers.PrimaryKeyRelatedField(
         queryset=ViolationType.objects.all(),
-        many=True,  # Critical change for M2M
+        many=True,
         write_only=True
     )
     license_plate = serializers.CharField(max_length=20, write_only=True)
-    
+
     # Read-only representations
     vehicle_detail = VehicleSerializer(source='vehicle', read_only=True)
     driver_detail = DriverSerializer(source='driver', read_only=True)
-    violation_types_detail = ViolationTypeSerializer(  # Changed field name (plural)
-        source='violation_type', 
-        many=True,  # Reflects M2M relationship
+    violation_types_detail = ViolationTypeSerializer(
+        source='violation_type',
+        many=True,
         read_only=True
     )
     officer_detail = OfficerSerializer(source='issued_by_officer', read_only=True)
+
+    # Add a field to represent the created ticket (optional, for response)
+    ticket_detail = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Violation
         fields = [
             'id',
             # Writeable fields
-            'driver', 'violation_types', 'license_plate', 'location',  # Changed field name
+            'driver', 'violation_types', 'license_plate', 'location',
             # Read-only detailed representations
-            'vehicle_detail', 'driver_detail', 'violation_types_detail', 'officer_detail',  # Changed
+            'vehicle_detail', 'driver_detail', 'violation_types_detail', 'officer_detail', 'ticket_detail',
             # Automatic fields
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
 
     def validate(self, data):
-        # License plate validation remains the same
         try:
             data['vehicle'] = Vehicle.objects.get(license_plate=data['license_plate'])
         except Vehicle.DoesNotExist:
@@ -98,16 +102,51 @@ class ViolationSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        # Extract M2M data before creation
         violation_types = validated_data.pop('violation_types', [])
         validated_data['issued_by_officer_id'] = self.context['user_id']
         validated_data.pop('license_plate', None)
-        
+
         # Create violation instance
         violation = super().create(validated_data)
-        
+
         # Set M2M relationship
-        violation.violation_type.set(violation_types)  # Changed to use .set()
-        
+        violation.violation_type.set(violation_types)
+
+        # --- NEW: Create Ticket after Violation is created ---
+        try:
+            Ticket.objects.create(
+                violation=violation,
+                reference_code=str(uuid.uuid4())[:10]  # Generate a unique short code
+                # You can add other default ticket fields here if needed
+            )
+        except Exception as e:
+            # Handle potential errors during ticket creation.
+            # You might want to log this error or even delete the just-created violation
+            # if ticket creation is critical. For now, we'll just re-raise.
+            violation.delete() # Optional: Rollback violation if ticket creation fails
+            raise serializers.ValidationError(f"Failed to create ticket for violation: {e}")
+        # --- END NEW ---
+
         return violation
 
+    def get_ticket_detail(self, obj):
+        # This method is used by `ticket_detail` SerializerMethodField
+        # It retrieves the related ticket and serializes it.
+        try:
+            ticket = obj.ticket  # Access the OneToOneField
+            return {
+                'id': ticket.pk,
+                'status': ticket.status,
+                'reference_code': ticket.reference_code,
+                'issued_at': ticket.issued_at,
+                # Add other ticket fields you want to expose
+            }
+        except Ticket.DoesNotExist:
+            return None # Or an empty dictionary, depending on desired behavior
+
+
+class DeviceTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceToken
+        fields = ['token']
+        read_only_fields = ['created_at', 'updated_at']

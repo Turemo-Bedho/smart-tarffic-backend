@@ -1,5 +1,11 @@
 from django.db import models
 from django.conf import settings
+# models.py
+import random
+import string
+from datetime import datetime
+
+
 
 class Officer(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True)
@@ -130,3 +136,21 @@ class Ticket(models.Model):
 
     def __str__(self):
         return f"Ticket for Driver ID {self.violation.driver.id}"
+
+
+
+class DeviceToken(models.Model):
+    token = models.CharField(max_length=255, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.token
+
+    class Meta:
+        verbose_name = "Device Token"
+        verbose_name_plural = "Device Tokens"
+
+
+
+# 

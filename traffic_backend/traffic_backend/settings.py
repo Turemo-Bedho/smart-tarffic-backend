@@ -13,6 +13,25 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
+import firebase_admin
+from firebase_admin import credentials, messaging
+from decouple import config
+
+# Path to your service account key file
+# It's highly recommended to use an environment variable for security
+SERVICE_ACCOUNT_KEY_PATH = config('FIREBASE_SERVICE_ACCOUNT_KEY_PATH')
+
+# Initialize Firebase Admin SDK
+try:
+    cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
+    firebase_admin.initialize_app(cred)
+    print("Firebase Admin SDK initialized successfully.")
+except Exception as e:
+    print(f"Error initializing Firebase Admin SDK: {e}")
+    # Handle the error appropriately, e.g., log it, or exit if critical
+
+
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -35,7 +54,7 @@ SECRET_KEY = "django-insecure-1!tawziy#ahwm+z01jhi6_7o)(z7po_%_q*tg*ha04c5i_rg(#
 
 # SECURITY WARNING: don't runpython manage.py runserver 192.168.60.99:8000 with debug turned on in production!
 DEBUG = True
-from decouple import config
+
 
 DEBUG = True # Keep True for local development
 
@@ -211,3 +230,7 @@ SIMPLE_JWT = {
    'AUTH_HEADER_TYPES': ('JWT',),
    'ACCESS_TOKEN_LIFETIME':timedelta(days=60),
 }
+
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN')
+TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER')

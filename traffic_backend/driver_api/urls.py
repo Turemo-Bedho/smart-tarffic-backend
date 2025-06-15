@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import DriverView, OfficerView, AddressView, check_point, ViolationView, ViolationTypeView, VehicleView
+from .views import DriverView, OfficerView, AddressView, check_point, ViolationView, ViolationTypeView, VehicleView, DeviceTokenView
 
 router = DefaultRouter()
 router.register('drivers', DriverView, basename='driver')
@@ -9,5 +9,6 @@ router.register('addresses', AddressView, basename='address')
 router.register('violations', ViolationView, basename='violation')
 router.register('violation-types', ViolationTypeView, basename='violation-type')
 router.register('vehicles', VehicleView, basename='vehicles')
+router.register('device-tokens', DeviceTokenView, basename='device-token')
 
 urlpatterns = router.urls + [path('check-point/', check_point, name='check_point')]

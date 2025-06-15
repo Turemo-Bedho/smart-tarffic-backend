@@ -21,14 +21,16 @@ from rest_framework.response import Response
 from driver_api.plate_recogntion import EthiopianPlateRecognizer
 
 # Local Application/Project Imports
-from .models import Driver, Officer, Address, Violation, ViolationType, Vehicle
-from .serializers import DriverSerializer, OfficerSerializer, AddressSerializer, ViolationSerializer, ViolationTypeSerializer, VehicleSerializer
+from .models import Driver, Officer, Address, Violation, ViolationType, Vehicle, DeviceToken
+from .serializers import DriverSerializer, OfficerSerializer, AddressSerializer, ViolationSerializer, ViolationTypeSerializer, VehicleSerializer, DeviceTokenSerializer
+from .notification import notify_officers_about_detection
 
 
 class DriverView(viewsets.ModelViewSet):
     queryset = Driver.objects.all()
     serializer_class = DriverSerializer
     parser_classes = [MultiPartParser, FormParser]
+    
 
     def perform_create(self, serializer):
         try:
@@ -418,7 +420,10 @@ def check_point(request):
                     'text': "Plate detected but could not be read",
                     'error': plate_result.get('error')
                 })
-            
+            notify_officers_about_detection({
+                'plate_image_url': f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{plate_filename}",
+                'plate_text': plate_result.get('plate_text'),
+            })
             return Response(response_data)
             
         except Exception as e:
@@ -490,3 +495,19 @@ def generate_traffic_report(request):
             {"status": "error", "error": "Internal server error"},
             status=500
         )
+    
+
+class DeviceTokenView(viewsets.ModelViewSet):
+    queryset = DeviceToken.objects.all()
+    serializer_class = DeviceTokenSerializer
+
+    def perform_create(self, serializer):
+        # Ensure unique token
+        token = serializer.validated_data['token']
+        if DeviceToken.objects.filter(token=token).exists():
+            raise Response(
+                    {'error': 'Device token already exists'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return super().perform_create(serializer)
